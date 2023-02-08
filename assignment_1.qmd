@@ -1,0 +1,99 @@
+---
+title: "assignement_1"
+format: pdf
+editor: visual
+---
+
+## Quarto
+
+```{r, message=FALSE}
+#import packages
+library(readr)
+library(tidyverse)
+library(zoo)
+library(lubridate)
+```
+
+```{r, message=FALSE, warning=FALSE}
+#import data from static website
+low_trop <- read_table("http://vortex.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt")
+
+mid_trop <- read_table("http://vortex.nsstc.uah.edu/data/msu/v6.0/tmt/uahncdc_mt_6.0.txt")
+
+trop <- read_table("http://vortex.nsstc.uah.edu/data/msu/v6.0/ttp/uahncdc_tp_6.0.txt")
+
+low_strat <- read_table("http://vortex.nsstc.uah.edu/data/msu/v6.0/tls/uahncdc_ls_6.0.txt")
+```
+
+```{r}
+#clean data by selecting the columns we want and renaming the
+#columns to something more descriptive for each data frame
+low_strat <- low_strat %>% 
+  select(Year, Mo, Globe) %>% 
+  rename(low_strat_globe = Globe)
+low_trop <- low_trop %>% 
+  select(Globe) %>% 
+  rename(low_trop_globe = Globe)
+mid_trop <- mid_trop %>% 
+  select(Globe) %>% 
+  rename(mid_globe = Globe)
+trop <- trop %>% 
+  select(Globe) %>% 
+  rename(trop_globe = Globe)
+
+#combine data to one data frame using the bind_cols function
+all_data <- bind_cols(low_strat, low_trop, mid_trop, trop)
+
+
+#make the dataframe dynamic by removing the last row and the first row
+which(all_data$Year %in% "Year")
+all_data <- all_data[1:which(all_data$Year %in% "Year")-1, ]
+
+#make a new column with the date using the year and month
+all_data <-all_data %>% 
+  mutate(date = ym(paste(Year, Mo))) %>% 
+  select(date,everything())
+
+
+#make all the data numeric
+all_data <- all_data %>% 
+  mutate_at(vars(low_strat_globe, low_trop_globe, mid_globe, trop_globe, Mo,), as.numeric)
+```
+
+```{r}
+
+#make a moving average of the data using a 12 month window and align the data to the right
+#fill the NA's with the first value
+all_data <- all_data %>% 
+  mutate(low_strat_globe_ma = rollmean(low_strat_globe, 12, align = "right", fill = NA),
+  low_trop_globe_ma = rollmean(low_trop_globe, 12, align = "right", fill = NA),
+  mid_globe_ma = rollmean(mid_globe, 12, align = "right", fill = NA),
+  trop_globe_ma = rollmean(trop_globe, 12, align = "right", fill = NA))
+```
+
+```{r}
+#make a column with the average of the 4 temperatures
+all_data <- all_data %>% 
+  mutate(average = (low_strat_globe_ma + low_trop_globe_ma + mid_globe_ma + trop_globe_ma)/4)
+```
+
+```{r warning=FALSE}
+
+#make plot of the data from 1980 onwards. Make the line thicker for the average
+all_data %>% 
+  filter(Year >= 1980) %>% 
+  ggplot(aes(x = date)) +
+  geom_line(aes(y = low_strat_globe_ma, color = "Low Stratosphere")) +
+  geom_line(aes(y = low_trop_globe_ma, color = "Low Troposphere")) +
+  geom_line(aes(y = mid_globe_ma, color = "Mid Troposphere")) +
+  geom_line(aes(y = trop_globe_ma, color = "Troposphere")) +
+  geom_line(aes(y = average, color = "Average"), size = 1.2)+
+
+#add labels and title and make the legend at the bottom, make the background white, make the x axis a date axis, make the x axis show every 2 years, make the x axis show the year, make the title centered, make the x axis labels vertical
+
+  labs(x = "Year", y = "Temperature (Celsius)", title = "Average of global temperatures", color = "") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  theme(legend.position = "bottom") +
+  scale_x_date(date_labels = "%Y", date_breaks = "2 years", guide = guide_axis(n.dodge = 2, angle = 45))+
+  theme_bw()
+```
