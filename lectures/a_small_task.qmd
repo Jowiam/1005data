@@ -1,0 +1,36 @@
+---
+title: "global_temprature"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(readxl)
+library(readr)
+```
+
+```{r}
+
+suppressWarnings(data <- read_table("https://www.nsstc.uah.edu/data/msu/v6.0/tlt/uahncdc_lt_6.0.txt", col_types = cols(Year = col_number(), 
+        Mo = col_number(), Globe = col_number(), 
+        Land = col_number())))
+data <- data[-(530:541),]
+```
+
+```{r}
+data_mean <- data %>% 
+  group_by(Year) %>% 
+  summarise(mean(Globe))
+
+data <- data %>% #legg til mean col fra data_mean
+
+
+data %>% 
+  filter(Year >= 1979) %>% 
+  group_by(Mo) %>% 
+  ggplot(aes(x = Year, y = Globe))+
+  geom_point(color = "cornflowerblue")+
+  geom_smooth(color = "red")+
+  geom_line()
+```
